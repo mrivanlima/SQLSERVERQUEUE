@@ -15,8 +15,9 @@
 :setvar EmailSubject "Subject"
 :setvar MailUser "[public]"
 :setvar dbOwner "sa"
+:setvar LockThreshold  10
 
-SELECT  '$(profilename)'
+
 
 USE $(TargetDatabase)
 GO
@@ -25,7 +26,11 @@ sp_configure 'show advanced options', 1
 GO
 RECONFIGURE
 GO
-sp_configure 'Blocked process threshold', 6
+sp_configure 'Blocked process threshold', $(LockThreshold)
+GO
+RECONFIGURE
+GO
+sp_configure 'Database Mail XPs', 1
 GO
 RECONFIGURE
 GO

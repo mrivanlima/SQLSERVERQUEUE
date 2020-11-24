@@ -8,11 +8,15 @@
 -- Impact           : If done in Dev and QA, no big impacts to be considered
 -------------------------------------------------------------------------------
 
-:setvar TargetDatabase "Practice"
+
+--Set of CMD variable to be set in order to make it work
+--Notice that these values should be inserted by you with the execption
+--of msdbDatabase. You should keep that one.
+:setvar TargetDatabase "TargetDatabaseName"
 :setvar msdbDatabase "msdb"
-:setvar ProfileName "TestUser"
-:setvar email "contact@misterivanlima.com"
-:setvar EmailSubject "Subject"
+:setvar ProfileName "EmailProfileName"
+:setvar email "EmailToSendNotification"
+:setvar EmailSubject "EmailSubject"
 :setvar MailUser "[public]"
 :setvar dbOwner "sa"
 :setvar LockThreshold  10
@@ -22,6 +26,8 @@
 USE $(TargetDatabase)
 GO
 
+--Open Database configuration
+--We are configuring the Threshold as well as Database Mail.
 sp_configure 'show advanced options', 1
 GO
 RECONFIGURE
@@ -35,11 +41,15 @@ GO
 RECONFIGURE
 GO
 
+
+--Make sure no other user is running any other process that will make me hold forever.
+ALTER DATABASE $(TargetDatabase) SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+
 DECLARE @IsBrokerEnabled BIT = (SELECT is_broker_enabled FROM sys.databases WHERE name = (SELECT DB_NAME()))
 
 IF @IsBrokerEnabled <> 1
 BEGIN
-	ALTER DATABASE $(TargetDatabase)  SET ENABLE_BROKER WITH ROLLBACK IMMEDIATE
+	ALTER DATABASE $(TargetDatabase)  SET ENABLE_BROKER
 END
 GO
 
@@ -61,9 +71,9 @@ IF NOT EXISTS (SELECT 1
 BEGIN
 	CREATE TABLE Utility.MonitorEventLockInformation
 	(
-		Id BigInt Identity(1,1),
+		Id BIGINT IDENTITY(1,1),
 		MessageBody XML,
-		DatabaseID Int,
+		DatabaseID INT,
 		Process XML
 	)
 END
@@ -75,8 +85,8 @@ GO
 CREATE OR ALTER PROCEDURE Utility.spProductionMonitorService
 AS
 BEGIN
-	DECLARE @message TABLE ( message_body xml not null,
-			message_sequence_number int not null );
+	DECLARE @message TABLE ( message_body XML not null,
+			message_sequence_number INT not null );
 
 	RECEIVE message_body, message_sequence_number
 	FROM LockQueue
@@ -122,7 +132,9 @@ CREATE SERVICE LockService
 ON QUEUE LockQueue ( [http://schemas.microsoft.com/SQL/Notifications/PostEventNotification] )
 GO
 
---drop ROUTE NotifyRoute
+
+--This is happening LOCAL. If we needed to send messages to different servers, we would need this in both servers.
+
 --CREATE ROUTE NotifyRoute  
 --WITH SERVICE_NAME = 'LockService',  
 --ADDRESS = 'LOCAL';
@@ -188,3 +200,4 @@ GO
 USE $(TargetDatabase)
 GO
 
+ALTER DATABASE $(TargetDatabase) SET MULTI_USER
